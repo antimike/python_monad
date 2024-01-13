@@ -1,7 +1,8 @@
-from functools import partial, reduce, wraps
-from itertools import starmap
+"""Assorted functional programming utilities and helpers. """
+
+from functools import partial, reduce
 from operator import call
-from typing import Any, Callable, Dict, Iterable, List, ParamSpec, TypeVar
+from typing import Any, Callable, Iterable, ParamSpec, TypeVar
 
 ResultType = TypeVar("ResultType")
 Params = ParamSpec("Params")
@@ -33,23 +34,6 @@ def precompose_unary(*funcs: Iterable[Callable[[T], T]]) -> Callable[[T], T]:
         return reduce(lambda res, fn: fn(res), funcs, arg)
 
     return composed
-
-
-def map_params(func, *args, **kwargs):
-    @wraps(func)
-    def wrapper(*arg_fns, **kwarg_fns):
-        return func(
-            *[
-                arg_fn(*args, **kwargs) if callable(arg_fn) else arg_fn
-                for arg_fn in arg_fns
-            ],
-            **{
-                kw: (kwarg_fn(*args, **kwargs) if callable(kwarg_fn) else kwarg_fn)
-                for kw, kwarg_fn in kwarg_fns.items()
-            },
-        )
-
-    return wrapper
 
 
 def _const(c: T) -> Callable[..., T]:

@@ -6,13 +6,13 @@ TODO:
         - @bind, @return, etc. for methods
     - operator overloading?
 """
+
 from __future__ import annotations
 
 import copy
 from abc import ABC, abstractmethod
 from functools import wraps
-from typing import (Any, Callable, ClassVar, Generic, Optional, Protocol, Self,
-                    Type, TypeVar)
+from typing import Callable, Generic, Self, TypeVar
 
 from .. import call_with, compose_unary
 from .types import ArgType, Params, ReturnType, WrappedType
@@ -26,12 +26,10 @@ class Monoid(ABC):
     """
 
     @abstractmethod
-    def __add__(self, other: Self) -> Self:
-        ...
+    def __add__(self, other: Self) -> Self: ...
 
     @abstractmethod
-    def __eq__(self, other: Self) -> bool:
-        ...
+    def __eq__(self, other: Self) -> bool: ...
 
     @classmethod
     @property
@@ -200,20 +198,37 @@ class Monad(ApplicativeFunctor[WrappedType]):
             )
         ).flatten()
 
+    @classmethod
+    def wrap(
+        cls,
+        process_results: None | Callable[[ReturnType], ArgType] = None,
+        lift_with: None | Callable[[ArgType], MonadType[ArgType]] = None,
+    ) -> Callable[[Callable[Params, ReturnType]], Callable[Params, MonadType[ArgType]]]:
+        """Decorator factory to create monadic functions.
+
+        Args:
+            process_results (optional): function the apply before injecting the
+                decorated function's return value into the monad
+            lift_with (optional): wrapper function to inject the return value
+                of the decorated function into the monad (defaults to cls.unit)
+        """
+
+        if lift_with is None:
+            lift_with = cls.unit
+
+        def decorator(
+            func: Callable[Params, ReturnType]
+        ) -> Callable[Params, MonadType[ArgType]]:
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                result = func(*args, **kwargs)
+                if process_results is not None:
+                    result = process_results(result)
+                return lift_with(result)
+
+            return wrapper
+
+        return decorator
+
 
 MonadType = TypeVar("Monad", bound=Monad)
-
-
-def wrap(
-    monad: MonadType, process_results: Callable[[ReturnType], ArgType]
-) -> Callable[[Callable[Params, ReturnType]], Callable[Params, MonadType[ArgType]]]:
-    def decorator(
-        func: Callable[Params, ReturnType]
-    ) -> Callable[Params, MonadType[ArgType]]:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            return monad(process_results(func(*args, **kwargs)))
-
-        return wrapper
-
-    return decorator
